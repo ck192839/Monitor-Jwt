@@ -1,0 +1,45 @@
+# 开发环境配置（模板，请将真实值填入或使用环境变量）
+springdoc:
+  paths-to-match: /api/**
+  swagger-ui:
+    operations-sorter: alpha
+spring:
+  influx:
+    url: http://localhost:8086
+    user: admin
+    password: ${INFLUX_PASSWORD:your-password}
+  mail:
+    host: smtp.163.com
+    username: ${MAIL_USERNAME:your-email@163.com}
+    password: ${MAIL_PASSWORD:your-password}
+  rabbitmq:
+    addresses: localhost
+    username: admin
+    password: ${RABBIT_PASSWORD:your-password}
+    virtual-host: /
+  datasource:
+    url: jdbc:mysql://localhost:3306/monitor
+    username: root
+    password: ${DB_PASSWORD:your-password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  security:
+    jwt:
+      key: '${JWT_KEY:your-jwt-key}'
+      expire: 72
+      limit:
+        base: 10
+        upgrade: 300
+        frequency: 30
+    filter:
+      order: -100
+  web:
+    verify:
+      mail-limit: 60
+    flow:
+      period: 10
+      limit: 50
+      block: 30
+    cors:
+      origin: '*'
+      credentials: false
+      methods: '*'
