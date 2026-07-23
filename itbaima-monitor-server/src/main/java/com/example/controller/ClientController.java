@@ -43,7 +43,9 @@ import java.util.List;
     }
 
     @PostMapping("/node")
-    public RestBean<Void> renameNode(@RequestBody @Valid RenameNodeVO vo) {
+    public RestBean<Void> renameNode(@RequestBody @Valid RenameNodeVO vo,
+                                     @RequestAttribute(Const.ATTR_USER_ID) int userId,
+                                     @RequestAttribute(Const.ATTR_USER_ROLE) String userRole) {
         service.renameNode(vo);
         return RestBean.success();
 

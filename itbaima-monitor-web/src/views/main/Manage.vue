@@ -8,6 +8,7 @@ import {Plus} from "@element-plus/icons-vue";
 import {useRoute} from "vue-router";
 import {useStore} from "@/store";
 import TerminalWindow from "@/component/TerminalWindow.vue";
+import {useWindowSize} from "@vueuse/core";
 
 const locations = [
   {name: 'cn', desc: '中国大陆'},
@@ -24,6 +25,12 @@ const list = ref([])
 const store = useStore()
 
 const route = useRoute()
+const { width } = useWindowSize()
+const detailDrawerSize = computed(() => {
+  if(width.value < 700) return 'calc(100% - 12px)'
+  if(width.value < 1100) return '78%'
+  return '860px'
+})
 
 const updateList = () => {
   if(route.name === 'manage') {
@@ -93,7 +100,7 @@ const terminal = reactive({
                     @click="displayClientDetails(item.id)"/>
     </div>
     <el-empty description="还没有任何主机哦，点击右上角添加一个吧" v-else/>
-    <el-drawer size="520" :show-close="false" v-model="detail.show"
+    <el-drawer :size="detailDrawerSize" :show-close="false" v-model="detail.show"
                :with-header="false" v-if="list.length" @close="detail.id = -1">
       <client-details :id="detail.id" :update="updateList" @delete="updateList" @terminal="openTerminal"/>
     </el-drawer>
@@ -134,6 +141,13 @@ const terminal = reactive({
 
 :deep(.el-drawer__body) {
   padding: 0;
+}
+
+@media (max-width: 700px) {
+  :deep(.el-drawer) {
+    margin: 6px;
+    height: calc(100% - 12px);
+  }
 }
 
 .manage-main {

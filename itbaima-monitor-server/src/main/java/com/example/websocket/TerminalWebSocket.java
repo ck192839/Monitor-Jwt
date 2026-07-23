@@ -22,7 +22,9 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -44,7 +46,11 @@ public class TerminalWebSocket {
     }
 
     private static final Map<Session, Shell> sessionMap = new ConcurrentHashMap<>();
-    private final ExecutorService service = Executors.newSingleThreadExecutor();
+    private final ExecutorService service = new ThreadPoolExecutor(
+            1, 1,
+            0L, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>()
+    );
 
     @OnOpen
     public void onOpen(Session session,

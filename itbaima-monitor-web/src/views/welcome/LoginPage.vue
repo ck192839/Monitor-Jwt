@@ -1,44 +1,35 @@
 <template>
-  <div style="text-align: center;margin: 0 20px">
-    <div style="margin-top: 150px">
-      <div style="font-size: 25px;font-weight: bold">登录</div>
-      <div style="font-size: 14px;color: grey">在进入系统之前请先输入用户名和密码进行登录</div>
+  <div class="auth-view">
+    <div class="auth-heading">
+      <h2>登录控制台</h2>
+      <p>使用管理员或子账户凭据继续</p>
     </div>
-    <div style="margin-top: 50px">
-      <el-form :model="form" :rules="rules" ref="formRef">
-        <el-form-item prop="username">
-          <el-input v-model="form.username" maxlength="10" type="text" placeholder="用户名/邮箱">
-            <template #prefix>
-              <el-icon>
-                <User/>
-              </el-icon>
-            </template>
-          </el-input>
+    <el-form class="auth-form" :model="form" :rules="rules" ref="formRef">
+      <el-form-item prop="username">
+        <el-input v-model="form.username" maxlength="10" type="text"
+                  autocomplete="username" placeholder="用户名或邮箱">
+          <template #prefix>
+            <el-icon><User/></el-icon>
+          </template>
+        </el-input>
+      </el-form-item>
+      <el-form-item prop="password">
+        <el-input v-model="form.password" type="password" maxlength="20"
+                  autocomplete="current-password" placeholder="密码" show-password
+                  @keyup.enter="userLogin">
+          <template #prefix>
+            <el-icon><Lock/></el-icon>
+          </template>
+        </el-input>
+      </el-form-item>
+      <div class="login-options">
+        <el-form-item prop="remember">
+          <el-checkbox v-model="form.remember" label="记住我"/>
         </el-form-item>
-        <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" maxlength="20" style="margin-top: 10px" placeholder="密码">
-            <template #prefix>
-              <el-icon>
-                <Lock/>
-              </el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-row style="margin-top: 5px">
-          <el-col :span="12" style="text-align: left">
-            <el-form-item prop="remember">
-              <el-checkbox v-model="form.remember" label="记住我"/>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12" style="text-align: right">
-            <el-link @click="router.push('/forget')">忘记密码？</el-link>
-          </el-col>
-        </el-row>
-      </el-form>
-    </div>
-    <div style="margin-top: 40px">
-      <el-button @click="userLogin()" style="width: 270px" type="success" plain>立即登录</el-button>
-    </div>
+        <el-link type="primary" :underline="false" @click="router.push('/forget')">忘记密码？</el-link>
+      </div>
+      <el-button class="auth-submit" @click="userLogin()" type="primary">立即登录</el-button>
+    </el-form>
   </div>
 </template>
 
@@ -74,5 +65,19 @@ function userLogin() {
 </script>
 
 <style scoped>
+.login-options {
+  min-height: 32px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
 
+.login-options :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.login-options .el-link {
+  margin-top: 5px;
+  font-size: 13px;
+}
 </style>

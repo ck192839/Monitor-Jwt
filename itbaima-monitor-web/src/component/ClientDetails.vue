@@ -1,5 +1,5 @@
 <script setup>
-import {computed, reactive, watch} from "vue";
+import {computed, onUnmounted, reactive, ref, watch} from "vue";
 import {get, post} from "@/net";
 import {copyIp, cpuNameToImage, fitByUnit, osNameToIcon, percentageToStatus, rename} from "@/tools";
 import {ElMessage, ElMessageBox} from "element-plus";
@@ -69,24 +69,57 @@ function updateDetails() {
   init(props.id)
 }
 
-setInterval(() => {
-  if(props.id !== -1 && details.runtime) {
-    get(`/api/monitor/runtime-now?clientId=${props.id}`, data => {
-      if(details.runtime.list.length >= 360)
-        details.runtime.list.splice(0, 1)
-      details.runtime.list.push(data)
-    })
-  }
-}, 10000)
+const monitorRanges = [
+  {label: '5分钟', value: 5},
+  {label: '15分钟', value: 15},
+  {label: '1小时', value: 60}
+]
+const monitorRange = ref(15)
+const monitoring = ref(true)
 
 const now = computed(() => details.runtime.list[details.runtime.list.length - 1])
+const percentage = value => Math.min(100, Math.max(0, value || 0))
+const cpuPercentage = computed(() => percentage(now.value?.cpuUsage * 100))
+const memoryPercentage = computed(() => percentage(now.value?.memoryUsage / details.runtime.memory * 100))
+const diskPercentage = computed(() => percentage(now.value?.diskUsage / details.runtime.disk * 100))
+const lastUpdated = computed(() => {
+  if(!now.value?.timestamp) return '等待数据'
+  return new Date(now.value.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})
+})
+const historyData = computed(() => {
+  const list = details.runtime.list
+  if(!list.length) return []
+  const latest = new Date(list[list.length - 1].timestamp).getTime()
+  const start = latest - monitorRange.value * 60 * 1000
+  return list.filter(item => new Date(item.timestamp).getTime() >= start)
+})
+
+function refreshRuntime() {
+  if(props.id === -1 || !details.runtime || !monitoring.value) return
+  const clientId = props.id
+  get(`/api/monitor/runtime-now?clientId=${clientId}`, data => {
+    if(clientId !== props.id) return
+    if(details.runtime.list.length >= 360)
+      details.runtime.list.splice(0, 1)
+    details.runtime.list.push(data)
+  })
+}
+
+const refreshTimer = setInterval(refreshRuntime, 10000)
+onUnmounted(() => clearInterval(refreshTimer))
 
 const init = id => {
   if(id !== -1) {
+    monitoring.value = true
+    monitorRange.value = 15
     details.base = {}
     details.runtime = { list: [] }
-    get(`/api/monitor/details?clientId=${id}`, data => Object.assign(details.base, data))
-    get(`/api/monitor/runtime-history?clientId=${id}`, data => Object.assign(details.runtime, data))
+    get(`/api/monitor/details?clientId=${id}`, data => {
+      if(id === props.id) Object.assign(details.base, data)
+    })
+    get(`/api/monitor/runtime-history?clientId=${id}`, data => {
+      if(id === props.id) Object.assign(details.runtime, data)
+    })
   }
 }
 watch(() => props.id, init, { immediate: true })
@@ -96,12 +129,12 @@ watch(() => props.id, init, { immediate: true })
   <el-scrollbar>
     <div class="client-details" v-loading="Object.keys(details.base).length === 0">
       <div v-if="Object.keys(details.base).length">
-        <div style="display: flex;justify-content: space-between">
+        <div class="details-header">
           <div class="title">
             <i class="fa-solid fa-server"></i>
             服务器信息
           </div>
-          <div>
+          <div class="details-actions">
             <el-button :icon="Connection" type="info"
                        @click="emits('terminal', id)" plain text>SSH远程连接</el-button>
             <el-button :icon="Delete" type="danger" style="margin-left: 0"
@@ -182,51 +215,60 @@ watch(() => props.id, init, { immediate: true })
             <span style="margin-left: 10px">{{`${details.base.osName} ${details.base.osVersion}`}}</span>
           </div>
         </div>
-        <div class="title" style="margin-top: 20px">
-          <i class="fa-solid fa-gauge-high"></i>
-          实时监控
-        </div>
-        <el-divider style="margin: 10px 0"/>
-        <div v-if="details.base.online" v-loading="!details.runtime.list.length"
-             style="min-height: 200px">
-          <div style="display: flex" v-if="details.runtime.list.length">
-            <el-progress type="dashboard" :width="100" :percentage="now.cpuUsage * 100"
-                         :status="percentageToStatus(now.cpuUsage * 100)">
-              <div style="font-size: 17px;font-weight: bold;color: initial">CPU</div>
-              <div style="font-size: 13px;color: grey;margin-top: 5px">{{ (now.cpuUsage * 100).toFixed(1) }}%</div>
-            </el-progress>
-            <el-progress style="margin-left: 20px" type="dashboard" :width="100"
-                         :percentage="now.memoryUsage / details.runtime.memory * 100"
-                         :status="percentageToStatus(now.memoryUsage / details.runtime.memory * 100)">
-              <div style="font-size: 16px;font-weight: bold;color: initial">内存</div>
-              <div style="font-size: 13px;color: grey;margin-top: 5px">{{ (now.memoryUsage).toFixed(1) }} GB</div>
-            </el-progress>
-            <div style="flex: 1;margin-left: 30px;display: flex;flex-direction: column;height: 80px">
-              <div style="flex: 1;font-size: 14px">
-                <div>实时网络速度</div>
-                <div>
-                  <i style="color: orange" class="fa-solid fa-arrow-up"></i>
-                  <span>{{` ${fitByUnit(now.networkUpload, 'KB')}/s`}}</span>
-                  <el-divider direction="vertical"/>
-                  <i style="color: dodgerblue" class="fa-solid fa-arrow-down"></i>
-                  <span>{{` ${fitByUnit(now.networkDownload, 'KB')}/s`}}</span>
-                </div>
-              </div>
-              <div>
-                <div style="font-size: 13px;display: flex;justify-content: space-between">
-                  <div>
-                    <i class="fa-solid fa-hard-drive"></i>
-                    <span> 磁盘总容量</span>
-                  </div>
-                  <div>{{now.diskUsage.toFixed(1)}} GB / {{details.runtime.disk.toFixed(1)}} GB</div>
-                </div>
-                <el-progress type="line" :show-text="false"
-                             :status="percentageToStatus(now.diskUsage / details.runtime.disk * 100)"
-                             :percentage="now.diskUsage / details.runtime.disk * 100" />
-              </div>
+        <div class="monitor-header">
+          <div>
+            <div class="title">
+              <i class="fa-solid fa-gauge-high"></i>
+              实时监控
+            </div>
+            <div class="monitor-status">
+              <span :class="['status-dot', {paused: !monitoring}]"/>
+              <span>{{monitoring ? '每10秒自动更新' : '实时刷新已暂停'}}</span>
+              <span>· 最后更新 {{lastUpdated}}</span>
             </div>
           </div>
-          <runtime-history style="margin-top: 20px" :data="details.runtime.list"/>
+          <div class="monitor-actions">
+            <el-radio-group v-model="monitorRange" size="small">
+              <el-radio-button v-for="range in monitorRanges" :key="range.value" :label="range.value">
+                {{range.label}}
+              </el-radio-button>
+            </el-radio-group>
+            <el-button size="small" @click="monitoring = !monitoring">
+              <i :class="monitoring ? 'fa-solid fa-pause' : 'fa-solid fa-play'"/>
+              <span style="margin-left: 6px">{{monitoring ? '暂停' : '继续'}}</span>
+            </el-button>
+          </div>
+        </div>
+        <el-divider style="margin: 12px 0 16px"/>
+        <div v-if="details.base.online" v-loading="!details.runtime.list.length"
+             style="min-height: 200px">
+          <div class="metric-grid" v-if="details.runtime.list.length">
+            <div class="metric-item">
+              <div class="metric-label"><i class="fa-solid fa-microchip"/> CPU 使用率</div>
+              <div class="metric-value">{{cpuPercentage.toFixed(1)}}<span>%</span></div>
+              <el-progress :status="percentageToStatus(cpuPercentage)" :percentage="cpuPercentage"
+                           :stroke-width="5" :show-text="false"/>
+            </div>
+            <div class="metric-item">
+              <div class="metric-label"><i class="fa-solid fa-memory"/> 内存使用率</div>
+              <div class="metric-value">{{memoryPercentage.toFixed(1)}}<span>%</span></div>
+              <div class="metric-desc">{{now.memoryUsage.toFixed(1)}} / {{details.runtime.memory.toFixed(1)}} GB</div>
+            </div>
+            <div class="metric-item">
+              <div class="metric-label"><i class="fa-solid fa-arrow-right-arrow-left"/> 网络吞吐</div>
+              <div class="metric-network">
+                <span><i class="fa-solid fa-arrow-up"/> {{fitByUnit(now.networkUpload, 'KB')}}/s</span>
+                <span><i class="fa-solid fa-arrow-down"/> {{fitByUnit(now.networkDownload, 'KB')}}/s</span>
+              </div>
+              <div class="metric-desc">上传 / 下载</div>
+            </div>
+            <div class="metric-item">
+              <div class="metric-label"><i class="fa-solid fa-hard-drive"/> 磁盘容量</div>
+              <div class="metric-value">{{diskPercentage.toFixed(1)}}<span>%</span></div>
+              <div class="metric-desc">{{now.diskUsage.toFixed(1)}} / {{details.runtime.disk.toFixed(1)}} GB</div>
+            </div>
+          </div>
+          <runtime-history class="runtime-history" :data="historyData" :memory="details.runtime.memory"/>
         </div>
         <el-empty description="服务器处于离线状态，请检查服务器是否正常运行" v-else/>
       </div>
@@ -247,7 +289,8 @@ watch(() => props.id, init, { immediate: true })
 
 .client-details {
   height: 100%;
-  padding: 20px;
+  padding: 24px;
+  box-sizing: border-box;
 
   .title {
     color: dodgerblue;
@@ -273,6 +316,152 @@ watch(() => props.id, init, { immediate: true })
         font-weight: bold;
       }
     }
+  }
+}
+
+.monitor-header {
+  margin-top: 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.details-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.monitor-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--el-color-success);
+
+  &.paused {
+    background-color: var(--el-text-color-placeholder);
+  }
+}
+
+.monitor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-item {
+  min-width: 0;
+  padding: 14px;
+  border: solid 1px var(--el-border-color-lighter);
+  border-radius: 6px;
+  background-color: var(--el-fill-color-lighter);
+}
+
+.metric-label {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.metric-value {
+  margin: 6px 0;
+  color: var(--el-text-color-primary);
+  font-size: 24px;
+  font-weight: bold;
+
+  & span {
+    margin-left: 3px;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+    font-weight: normal;
+  }
+}
+
+.metric-network {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 7px 0;
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+
+  & span:first-child i {
+    color: var(--el-color-warning);
+  }
+
+  & span:last-child i {
+    color: var(--el-color-primary);
+  }
+}
+
+.metric-desc {
+  overflow: hidden;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-history {
+  margin-top: 26px;
+}
+
+@media (max-width: 900px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .client-details {
+    padding: 16px;
+  }
+
+  .monitor-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .details-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .details-actions {
+    justify-content: flex-start;
+  }
+
+  .monitor-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
