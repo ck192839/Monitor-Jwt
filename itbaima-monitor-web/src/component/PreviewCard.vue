@@ -20,7 +20,7 @@ const props = defineProps({
           操作系统:
           <i :style="{color: osNameToIcon(data.osName).color}"
              :class="`fa-brands ${osNameToIcon(data.osName).icon}`"></i>
-          {{`${data.osName} ${data.osVersion}`}}
+          {{`${data.osName || '未知'} ${data.osVersion || ''}`}}
         </div>
       </div>
       <div class="status" v-if="data.online">
@@ -38,13 +38,13 @@ const props = defineProps({
       <i class="fa-solid fa-copy interact-item" @click.stop="copyIp(data.ip)" style="color: dodgerblue"></i>
     </div>
     <div class="cpu">
-      <span style="margin-right: 10px">处理器: {{data.cpuName}}</span>
+      <span style="margin-right: 10px">处理器: {{data.cpuName || '未知'}}</span>
     </div>
     <div class="hardware">
       <i class="fa-solid fa-microchip"></i>
       <span style="margin-right: 10px">{{` ${data.cpuCore} CPU`}}</span>
       <i class="fa-solid fa-memory"></i>
-      <span>{{` ${data.memory.toFixed(1)} GB`}}</span>
+      <span>{{` ${Number(data.memory || 0).toFixed(1)} GB`}}</span>
     </div>
     <div class="progress">
       <span>{{`CPU: ${(data.cpuUsage * 100).toFixed(1)}%`}}</span>
@@ -52,9 +52,9 @@ const props = defineProps({
                    :percentage="data.cpuUsage * 100" :stroke-width="5" :show-text="false"/>
     </div>
     <div class="progress">
-      <span>内存: <b>{{data.memoryUsage.toFixed(1)}}</b> GB</span>
-      <el-progress :status="percentageToStatus(data.memoryUsage/data.memory * 100)"
-                   :percentage="data.memoryUsage/data.memory * 100" :stroke-width="5" :show-text="false"/>
+      <span>内存: <b>{{Number(data.memoryUsage || 0).toFixed(1)}}</b> GB</span>
+      <el-progress :status="percentageToStatus(data.memory > 0 ? data.memoryUsage/data.memory * 100 : 0)"
+                   :percentage="data.memory > 0 ? data.memoryUsage/data.memory * 100 : 0" :stroke-width="5" :show-text="false"/>
     </div>
     <div class="network-flow">
       <div>网络流量</div>

@@ -96,7 +96,12 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     public List<ClientPreviewVO> listClients() {
         return clientIdCache.values().stream().map(client -> {
             ClientPreviewVO vo = client.asViewObject(ClientPreviewVO.class);//基本信息
-            BeanUtils.copyProperties(detailMapper.selectById(vo.getId()), vo);//详细信息
+            ClientDetail detail = detailMapper.selectById(vo.getId());
+            if (detail != null) {
+                BeanUtils.copyProperties(detail, vo);//详细信息
+            } else {
+                applyMissingDetailDefaults(vo);
+            }
             RuntimeDetailVO runtime = currentRuntime.get(client.getId());//运行时信息
             if(this.isOnline(runtime)) {
                 BeanUtils.copyProperties(runtime, vo);
@@ -109,7 +114,14 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     public List<ClientSimpleVO> listSimpleList() {
         return clientIdCache.values().stream().map(client -> {
             ClientSimpleVO vo = client.asViewObject(ClientSimpleVO.class);
-            BeanUtils.copyProperties(detailMapper.selectById(vo.getId()), vo);
+            ClientDetail detail = detailMapper.selectById(vo.getId());
+            if (detail != null) {
+                BeanUtils.copyProperties(detail, vo);
+            } else {
+                vo.setOsName("未知");
+                vo.setOsVersion("");
+                vo.setIp("未知");
+            }
             return vo;
         }).toList();
     }
@@ -161,7 +173,7 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
         } else {
             vo = ssh.asViewObject(SshSettingsVO.class);
         }
-        vo.setIp(detail.getIp());
+        vo.setIp(detail == null || detail.getIp() == null ? "未知" : detail.getIp());
         return vo;
     }
 
@@ -172,7 +184,12 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     @Override
     public ClientDetailsVO clientDetails(int clientId) {
         ClientDetailsVO vo = this.clientIdCache.get(clientId).asViewObject(ClientDetailsVO.class);
-        BeanUtils.copyProperties(detailMapper.selectById(clientId), vo);
+        ClientDetail detail = detailMapper.selectById(clientId);
+        if (detail != null) {
+            BeanUtils.copyProperties(detail, vo);
+        } else {
+            applyMissingDetailDefaults(vo);
+        }
         vo.setOnline(this.isOnline(currentRuntime.get(clientId)));
         return vo;
     }
@@ -194,6 +211,24 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     private void addClientCache(Client client) {
         clientIdCache.put(client.getId(), client);
         clientTokenCache.put(client.getToken(), client);
+    }
+
+    private void applyMissingDetailDefaults(ClientPreviewVO vo) {
+        vo.setOsName("未知");
+        vo.setOsVersion("");
+        vo.setIp("未知");
+        vo.setCpuName("未知");
+        vo.setCpuCore(0);
+        vo.setMemory(0);
+    }
+
+    private void applyMissingDetailDefaults(ClientDetailsVO vo) {
+        vo.setOsName("未知");
+        vo.setOsVersion("");
+        vo.setIp("未知");
+        vo.setCpuName("未知");
+        vo.setCpuCore(0);
+        vo.setMemory(0);
     }
 
     private int randomClientId() {

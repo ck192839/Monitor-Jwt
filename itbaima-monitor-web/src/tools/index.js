@@ -27,6 +27,7 @@ function percentageToStatus(percentage) {
 }
 
 function osNameToIcon(name) {
+    name = name || ''
     if(name.indexOf('Ubuntu') >= 0)
         return {icon: 'fa-ubuntu', color: '#db4c1a'}
     else if(name.indexOf('CentOS') >= 0)
