@@ -79,5 +79,10 @@ function userLogin() {
 .login-options .el-link {
   margin-top: 5px;
   font-size: 13px;
+  transition: transform .2s ease;
+}
+
+.login-options .el-link:hover {
+  transform: translateX(2px);
 }
 </style>

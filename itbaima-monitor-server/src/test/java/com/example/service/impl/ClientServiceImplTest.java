@@ -1,7 +1,9 @@
 package com.example.service.impl;
 
 import com.example.entity.dto.Client;
+import com.example.entity.vo.response.RuntimeHistoryVO;
 import com.example.mapper.ClientDetailMapper;
+import com.example.utils.InfluxDbUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -27,5 +29,21 @@ class ClientServiceImplTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("未命名主机");
         assertThat(result.get(0).getOsName()).isEqualTo("未知");
+    }
+
+    @Test
+    void historyShouldReturnWithoutDetailRecord() {
+        ClientServiceImpl service = new ClientServiceImpl();
+        ClientDetailMapper detailMapper = mock(ClientDetailMapper.class);
+        InfluxDbUtils influx = mock(InfluxDbUtils.class);
+        ReflectionTestUtils.setField(service, "detailMapper", detailMapper);
+        ReflectionTestUtils.setField(service, "influx", influx);
+        when(detailMapper.selectById(1)).thenReturn(null);
+        when(influx.readRuntimeData(1)).thenReturn(new RuntimeHistoryVO());
+
+        var result = service.clientRuntimeDetailsHistory(1);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getList()).isEmpty();
     }
 }

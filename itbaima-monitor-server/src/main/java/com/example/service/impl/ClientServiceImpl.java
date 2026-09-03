@@ -203,7 +203,9 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     public RuntimeHistoryVO clientRuntimeDetailsHistory(int clientId) {
         RuntimeHistoryVO vo= influx.readRuntimeData(clientId);
         ClientDetail detail=detailMapper.selectById(clientId);
-        BeanUtils.copyProperties(detail,vo);
+        if (detail != null) {
+            BeanUtils.copyProperties(detail,vo);
+        }
         return vo;
     }
 

@@ -57,6 +57,15 @@ const clientList = computed(() => {
   }
 })
 
+const stats = computed(() => {
+  const online = clientList.value.filter(item => item.online).length
+  return {
+    total: clientList.value.length,
+    online,
+    offline: clientList.value.length - online
+  }
+})
+
 const register = reactive({
   show: false,
   token: ''
@@ -87,6 +96,13 @@ const terminal = reactive({
       </div>
     </div>
     <el-divider style="margin: 10px 0"/>
+    <div class="stats-bar">
+      <span>共 <b>{{ stats.total }}</b> 台主机</span>
+      <el-divider direction="vertical"/>
+      <span><i style="color: #18cb18" class="fa-solid fa-circle-play"></i> 在线 <b>{{ stats.online }}</b> 台</span>
+      <el-divider direction="vertical"/>
+      <span><i style="color: #8a8a8a" class="fa-solid fa-circle-stop"></i> 离线 <b>{{ stats.offline }}</b> 台</span>
+    </div>
     <div style="margin-bottom: 20px">
       <el-checkbox-group v-model="checkedNodes">
         <el-checkbox v-for="node in locations" :key="node" :label="node.name" border>
@@ -96,8 +112,10 @@ const terminal = reactive({
       </el-checkbox-group>
     </div>
     <div class="card-list" v-if="list.length">
-      <preview-card v-for="item in clientList" :data="item" :update="updateList"
-                    @click="displayClientDetails(item.id)"/>
+      <transition-group name="card-pop" appear>
+        <preview-card v-for="item in clientList" :key="item.id" :data="item" :update="updateList"
+                      @click="displayClientDetails(item.id)"/>
+      </transition-group>
     </div>
     <el-empty description="还没有任何主机哦，点击右上角添加一个吧" v-else/>
     <el-drawer :size="detailDrawerSize" :show-close="false" v-model="detail.show"
@@ -162,11 +180,48 @@ const terminal = reactive({
     font-size: 15px;
     color: grey;
   }
+
+  .stats-bar {
+    font-size: 14px;
+    color: grey;
+    margin-bottom: 15px;
+
+    b {
+      color: var(--el-text-color-primary);
+    }
+  }
 }
 
 .card-list {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+}
+
+.card-pop-enter-active {
+  transition: opacity .4s ease, transform .4s cubic-bezier(.22, .61, .36, 1);
+}
+
+.card-pop-enter-active:nth-child(2) { transition-delay: .06s; }
+.card-pop-enter-active:nth-child(3) { transition-delay: .12s; }
+.card-pop-enter-active:nth-child(4) { transition-delay: .18s; }
+.card-pop-enter-active:nth-child(n+5) { transition-delay: .24s; }
+
+.card-pop-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(.96);
+}
+
+.card-pop-leave-active {
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.card-pop-leave-to {
+  opacity: 0;
+  transform: scale(.95);
+}
+
+.card-pop-move {
+  transition: transform .35s cubic-bezier(.22, .61, .36, 1);
 }
 </style>

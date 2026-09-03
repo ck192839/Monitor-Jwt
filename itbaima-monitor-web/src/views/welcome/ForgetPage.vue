@@ -166,6 +166,12 @@ const doReset = () => {
 .back-button {
   margin: 0 0 20px -8px;
   color: var(--el-text-color-secondary);
+  transition: transform .2s ease, color .2s ease;
+}
+
+.back-button:hover {
+  transform: translateX(-3px);
+  color: var(--el-color-primary);
 }
 
 .reset-steps {

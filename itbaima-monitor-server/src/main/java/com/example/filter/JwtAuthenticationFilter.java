@@ -44,6 +44,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         if(uri.startsWith("/monitor")) {
             if(!uri.endsWith("/register")) {
+                if(authorization == null) {
+                    response.setStatus(401);
+                    response.setCharacterEncoding("utf-8");
+                    response.getWriter().write(RestBean.failure(401, "未注册").asJsonString());
+                    return;
+                }
                 Client client = service.findClientByToken(authorization);
                 if(client == null) {
                     response.setStatus(401);

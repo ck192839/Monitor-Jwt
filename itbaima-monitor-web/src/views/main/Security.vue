@@ -213,6 +213,12 @@ function deleteAccount(id) {
   padding: 15px 20px;
   background-color: var(--el-bg-color);
   height: fit-content;
+  transition: box-shadow .3s ease, transform .3s ease;
+
+  &:hover {
+    box-shadow: var(--el-box-shadow-light);
+    transform: translateY(-2px);
+  }
 
   .title {
     font-size: 18px;
@@ -229,6 +235,12 @@ function deleteAccount(id) {
   align-items: center;
   text-align: left;
   margin: 10px 0;
+  transition: background-color .25s ease, transform .25s ease;
+
+  &:hover {
+    background-color: var(--el-fill-color-light);
+    transform: translateX(4px);
+  }
 }
 
 :deep(.el-drawer) {

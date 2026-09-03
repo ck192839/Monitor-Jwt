@@ -34,7 +34,7 @@
     </el-header>
     <el-main class="main-content">
       <router-view v-slot="{ Component }">
-        <transition name="el-fade-in-linear" mode="out-in">
+        <transition name="page-slide" mode="out-in">
           <keep-alive exclude="Security">
             <component :is="Component"/>
           </keep-alive>
@@ -105,7 +105,33 @@ function userLogout() {
   .main-content {
     height: 100%;
     background-color: #f5f5f5;
+    overflow-x: hidden;
   }
+}
+
+.page-slide-enter-active,
+.page-slide-leave-active {
+  transition: opacity .25s ease, transform .3s cubic-bezier(.22, .61, .36, 1);
+}
+
+.page-slide-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.page-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.avatar {
+  cursor: pointer;
+  transition: transform .25s cubic-bezier(.22, .61, .36, 1), box-shadow .25s ease;
+}
+
+.avatar:hover {
+  transform: scale(1.12) rotate(6deg);
+  box-shadow: 0 0 0 3px var(--el-color-primary-light-7);
 }
 
 .dark .main-container .main-content {

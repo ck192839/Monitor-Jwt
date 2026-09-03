@@ -10,11 +10,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <div class="secure-state">
-          <span class="status-dot"></span>
-          安全访问
-        </div>
-        <el-switch v-model="dark" active-color="#424242"
+          <el-switch v-model="dark" active-color="#424242"
                    :active-action-icon="Moon"
                    :inactive-action-icon="Sunny"/>
       </div>
@@ -36,7 +32,6 @@
                 <strong>基础设施概览</strong>
                 <span>CONTROL CENTER</span>
               </div>
-              <el-tag type="success" size="small" effect="plain">等待登录</el-tag>
             </div>
             <div class="node-list">
               <div class="node-row">
@@ -65,7 +60,9 @@
                   <strong>远程终端</strong>
                   <span>SSH · 实时会话</span>
                 </div>
-                <div class="node-status"><span class="status-dot"></span>就绪</div>
+                <div class="signal-bars" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span>
+                </div>
               </div>
             </div>
           </div>
@@ -73,7 +70,7 @@
       </section>
       <section class="auth-column">
         <router-view v-slot="{ Component }">
-          <transition name="el-fade-in-linear" mode="out-in">
+          <transition name="auth-slide" mode="out-in">
             <component :is="Component"/>
           </transition>
         </router-view>
@@ -117,7 +114,6 @@ const dark = ref(useDark())
 
 .brand,
 .header-actions,
-.secure-state,
 .section-label,
 .panel-header,
 .node-row {
@@ -128,6 +124,12 @@ const dark = ref(useDark())
 .brand-logo {
   width: 132px;
   height: 30px;
+  transition: opacity .25s ease, transform .25s ease;
+}
+
+.brand-logo:hover {
+  opacity: .8;
+  transform: scale(1.03);
 }
 
 .brand-name {
@@ -153,12 +155,6 @@ const dark = ref(useDark())
 
 .header-actions {
   gap: 20px;
-}
-
-.secure-state {
-  gap: 7px;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
 }
 
 .status-dot {
@@ -214,6 +210,12 @@ const dark = ref(useDark())
   border: solid 1px var(--el-border-color);
   border-radius: 6px;
   box-shadow: var(--el-box-shadow-light);
+  transition: transform .35s cubic-bezier(.22, .61, .36, 1), box-shadow .35s ease;
+}
+
+.monitor-panel:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .12);
 }
 
 .panel-header {
@@ -244,6 +246,19 @@ const dark = ref(useDark())
 .node-row {
   min-height: 72px;
   border-bottom: solid 1px var(--el-border-color-lighter);
+  transition: background-color .25s ease, transform .25s ease;
+}
+
+.node-row:hover {
+  background-color: var(--el-fill-color-light);
+}
+
+.node-row:hover .node-icon {
+  transform: translateY(-2px) scale(1.08);
+}
+
+.node-row:hover .signal-bars span {
+  animation-duration: .9s;
 }
 
 .node-row:last-child {
@@ -259,6 +274,7 @@ const dark = ref(useDark())
   place-items: center;
   color: var(--el-color-primary);
   background-color: var(--el-color-primary-light-9);
+  transition: transform .25s cubic-bezier(.22, .61, .36, 1);
 }
 
 .node-icon.data {
@@ -302,21 +318,48 @@ const dark = ref(useDark())
   width: 9px;
   border-radius: 2px 2px 0 0;
   background-color: var(--el-color-primary-light-5);
+  transform-origin: bottom;
+  animation: signal-pulse 2.4s ease-in-out infinite;
 }
 
-.signal-bars span:nth-child(1) { height: 8px; }
-.signal-bars span:nth-child(2) { height: 16px; }
-.signal-bars span:nth-child(3) { height: 12px; }
-.signal-bars span:nth-child(4) { height: 21px; }
-.signal-bars span:nth-child(5) { height: 17px; }
+.signal-bars span:nth-child(1) { height: 8px;  animation-delay: 0s; }
+.signal-bars span:nth-child(2) { height: 16px; animation-delay: .15s; }
+.signal-bars span:nth-child(3) { height: 12px; animation-delay: .3s; }
+.signal-bars span:nth-child(4) { height: 21px; animation-delay: .45s; }
+.signal-bars span:nth-child(5) { height: 17px; animation-delay: .6s; }
 .signal-bars.warning span { background-color: #e6a23c; }
 
-.node-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
+@keyframes signal-pulse {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(.45); }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.auth-slide-enter-active,
+.auth-slide-leave-active {
+  transition: opacity .28s ease, transform .28s cubic-bezier(.22, .61, .36, 1);
+}
+
+.auth-slide-enter-from {
+  opacity: 0;
+  transform: translateX(26px);
+}
+
+.auth-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-26px);
+}
+
+.overview-title {
+  animation: rise-in .6s cubic-bezier(.22, .61, .36, 1) both;
+}
+
+.monitor-panel {
+  animation: rise-in .7s cubic-bezier(.22, .61, .36, 1) .12s both;
 }
 
 .auth-column {
@@ -332,6 +375,7 @@ const dark = ref(useDark())
   width: 100%;
   max-width: 344px;
   margin: 0 auto;
+  animation: rise-in .6s cubic-bezier(.22, .61, .36, 1) .1s both;
 }
 
 .auth-column :deep(.auth-heading) {
@@ -357,6 +401,11 @@ const dark = ref(useDark())
 .auth-column :deep(.auth-form .el-input__wrapper) {
   min-height: 42px;
   border-radius: 5px;
+  transition: box-shadow .25s ease, transform .25s ease;
+}
+
+.auth-column :deep(.auth-form .el-input__wrapper.is-focus) {
+  transform: translateY(-1px);
 }
 
 .auth-column :deep(.auth-submit) {
@@ -364,6 +413,17 @@ const dark = ref(useDark())
   height: 42px;
   margin-top: 18px;
   border-radius: 5px;
+  transition: transform .2s ease, box-shadow .25s ease, filter .25s ease;
+}
+
+.auth-column :deep(.auth-submit:hover:not(.is-disabled)) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--el-color-primary-light-5);
+}
+
+.auth-column :deep(.auth-submit:active) {
+  transform: translateY(0) scale(.97);
+  filter: brightness(.92);
 }
 
 .dark .platform-overview {
@@ -389,10 +449,6 @@ const dark = ref(useDark())
   }
 
   .brand-name {
-    display: none;
-  }
-
-  .secure-state {
     display: none;
   }
 
