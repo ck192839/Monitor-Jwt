@@ -94,9 +94,11 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     }
     @Override
     public List<ClientPreviewVO> listClients() {
-        return clientIdCache.values().stream().map(client -> {
+        List<Client> clients = new ArrayList<>(clientIdCache.values());
+        Map<Integer, ClientDetail> details = loadClientDetails(clients);
+        return clients.stream().map(client -> {
             ClientPreviewVO vo = client.asViewObject(ClientPreviewVO.class);//基本信息
-            ClientDetail detail = detailMapper.selectById(vo.getId());
+            ClientDetail detail = details.get(vo.getId());
             if (detail != null) {
                 BeanUtils.copyProperties(detail, vo);//详细信息
             } else {
@@ -112,9 +114,11 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     }
     @Override
     public List<ClientSimpleVO> listSimpleList() {
-        return clientIdCache.values().stream().map(client -> {
+        List<Client> clients = new ArrayList<>(clientIdCache.values());
+        Map<Integer, ClientDetail> details = loadClientDetails(clients);
+        return clients.stream().map(client -> {
             ClientSimpleVO vo = client.asViewObject(ClientSimpleVO.class);
-            ClientDetail detail = detailMapper.selectById(vo.getId());
+            ClientDetail detail = details.get(vo.getId());
             if (detail != null) {
                 BeanUtils.copyProperties(detail, vo);
             } else {
@@ -124,6 +128,20 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
             }
             return vo;
         }).toList();
+    }
+
+    private Map<Integer, ClientDetail> loadClientDetails(Collection<Client> clients) {
+        if (clients.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Integer> ids = clients.stream().map(Client::getId).toList();
+        List<ClientDetail> details = detailMapper.selectBatchIds(ids);
+        if (details == null || details.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return details.stream()
+                .filter(detail -> detail.getId() != null)
+                .collect(java.util.stream.Collectors.toMap(ClientDetail::getId, detail -> detail, (first, ignored) -> first));
     }
 
 

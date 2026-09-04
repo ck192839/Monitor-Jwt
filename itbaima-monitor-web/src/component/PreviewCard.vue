@@ -1,9 +1,17 @@
 <script setup>
+import {computed} from 'vue'
 import {copyIp, fitByUnit, osNameToIcon, percentageToStatus, rename} from '@/tools'
 
 const props = defineProps({
   data: Object,
   update: Function
+})
+
+const clampPercent = value => Math.min(100, Math.max(0, Number(value) || 0))
+const cpuPercent = computed(() => clampPercent((props.data?.cpuUsage ?? 0) * 100))
+const memoryPercent = computed(() => {
+  const memory = Number(props.data?.memory) || 0
+  return memory > 0 ? clampPercent((Number(props.data?.memoryUsage) || 0) / memory * 100) : 0
 })
 </script>
 
@@ -47,14 +55,14 @@ const props = defineProps({
       <span>{{` ${Number(data.memory || 0).toFixed(1)} GB`}}</span>
     </div>
     <div class="progress">
-      <span>{{`CPU: ${(data.cpuUsage * 100).toFixed(1)}%`}}</span>
-      <el-progress :status="percentageToStatus(data.cpuUsage * 100)"
-                   :percentage="data.cpuUsage * 100" :stroke-width="5" :show-text="false"/>
+      <span>{{`CPU: ${cpuPercent.toFixed(1)}%`}}</span>
+      <el-progress :status="percentageToStatus(cpuPercent)"
+                   :percentage="cpuPercent" :stroke-width="5" :show-text="false"/>
     </div>
     <div class="progress">
       <span>内存: <b>{{Number(data.memoryUsage || 0).toFixed(1)}}</b> GB</span>
-      <el-progress :status="percentageToStatus(data.memory > 0 ? data.memoryUsage/data.memory * 100 : 0)"
-                   :percentage="data.memory > 0 ? data.memoryUsage/data.memory * 100 : 0" :stroke-width="5" :show-text="false"/>
+      <el-progress :status="percentageToStatus(memoryPercent)"
+                   :percentage="memoryPercent" :stroke-width="5" :show-text="false"/>
     </div>
     <div class="network-flow">
       <div>网络流量</div>

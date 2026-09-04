@@ -3,9 +3,10 @@ import {ElMessage, ElMessageBox} from "element-plus";
 import {post} from "@/net";
 
 function fitByUnit(value, unit) {
+    value = Number(value) || 0
     const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-    let index = units.indexOf(unit)
-    while (((value < 1 && value !== 0) || value >= 1024) && (index >= 0 || index < units.length)) {
+    let index = Math.max(0, units.indexOf(unit))
+    while (((value < 1 && value !== 0) || value >= 1024) && index >= 0 && index < units.length - 1) {
         if(value >= 1024) {
             value = value / 1024
             index = index + 1

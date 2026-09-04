@@ -1,6 +1,7 @@
 package com.example.service.impl;
 
 import com.example.entity.dto.Client;
+import com.example.entity.dto.ClientDetail;
 import com.example.entity.vo.response.RuntimeHistoryVO;
 import com.example.mapper.ClientDetailMapper;
 import com.example.utils.InfluxDbUtils;
@@ -11,7 +12,10 @@ import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyList;
 
 class ClientServiceImplTest {
 
@@ -45,5 +49,29 @@ class ClientServiceImplTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getList()).isEmpty();
+    }
+
+    @Test
+    void listClientsShouldLoadDetailsInOneBatchQuery() {
+        ClientServiceImpl service = new ClientServiceImpl();
+        ClientDetailMapper detailMapper = mock(ClientDetailMapper.class);
+        ReflectionTestUtils.setField(service, "detailMapper", detailMapper);
+        ReflectionTestUtils.invokeMethod(service, "addClientCache",
+                new Client(1, "主机1", "token-1", "cn", "节点1", new Date()));
+        ReflectionTestUtils.invokeMethod(service, "addClientCache",
+                new Client(2, "主机2", "token-2", "cn", "节点2", new Date()));
+        ClientDetail detail = new ClientDetail();
+        detail.setId(1);
+        detail.setOsName("Linux");
+        when(detailMapper.selectBatchIds(anyList()))
+                .thenReturn(java.util.List.of(detail));
+
+        var result = service.listClients();
+
+        verify(detailMapper).selectBatchIds(org.mockito.ArgumentMatchers.argThat(ids ->
+                ids.size() == 2 && ids.containsAll(java.util.List.of(1, 2))));
+        verify(detailMapper, never()).selectById(1);
+        verify(detailMapper, never()).selectById(2);
+        assertThat(result).anyMatch(item -> item.getId() == 1 && "Linux".equals(item.getOsName()));
     }
 }
