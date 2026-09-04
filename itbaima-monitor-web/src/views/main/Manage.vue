@@ -20,6 +20,8 @@ const locations = [
   {name: 'de', desc: '德国'}
 ]
 const checkedNodes = ref([])
+const searchKeyword = ref('')
+const sortMode = ref('default')
 
 const list = ref([])
 const store = useStore()
@@ -50,11 +52,27 @@ const displayClientDetails = (id) => {
 }
 
 const clientList = computed(() => {
-  if(checkedNodes.value.length === 0) {
-    return list.value
-  } else {
-    return list.value.filter(item => checkedNodes.value.indexOf(item.location) >= 0)
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  const filtered = list.value.filter(item => {
+    const matchesLocation = checkedNodes.value.length === 0 || checkedNodes.value.includes(item.location)
+    const matchesKeyword = !keyword || [item.ip, item.name, item.id]
+      .some(value => String(value ?? '').toLowerCase().includes(keyword))
+    return matchesLocation && matchesKeyword
+  })
+  const sorted = [...filtered]
+  const memoryRate = item => item.memory > 0 ? item.memoryUsage / item.memory : 0
+  if(sortMode.value === 'system') {
+    sorted.sort((a, b) => String(a.osName ?? '').localeCompare(String(b.osName ?? ''), 'zh-CN'))
+  } else if(sortMode.value === 'cpu') {
+    sorted.sort((a, b) => (b.cpuUsage ?? 0) - (a.cpuUsage ?? 0))
+  } else if(sortMode.value === 'memory') {
+    sorted.sort((a, b) => memoryRate(b) - memoryRate(a))
+  } else if(sortMode.value === 'online') {
+    sorted.sort((a, b) => Number(b.online) - Number(a.online))
+  } else if(sortMode.value === 'offline') {
+    sorted.sort((a, b) => Number(a.online) - Number(b.online))
   }
+  return sorted
 })
 
 const currentPage = ref(1)
@@ -63,9 +81,12 @@ const pagedList = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   return clientList.value.slice(start, start + pageSize.value)
 })
-watch(() => [clientList.value.length, pageSize.value], () => {
+watch(() => [clientList.value.length, pageSize.value, searchKeyword.value, sortMode.value], () => {
   const maxPage = Math.max(1, Math.ceil(clientList.value.length / pageSize.value))
   if(currentPage.value > maxPage) currentPage.value = maxPage
+})
+watch(() => [searchKeyword.value, sortMode.value, checkedNodes.value.join(',')], () => {
+  currentPage.value = 1
 })
 
 const stats = computed(() => {
@@ -114,6 +135,17 @@ const terminal = reactive({
       <el-divider direction="vertical"/>
       <span><i style="color: #8a8a8a" class="fa-solid fa-circle-stop"></i> 离线 <b>{{ stats.offline }}</b> 台</span>
     </div>
+    <div class="toolbar">
+      <el-input v-model="searchKeyword" clearable placeholder="按 IP、主机名或 ID 检索" class="search-input"/>
+      <el-select v-model="sortMode" placeholder="排序方式" class="sort-select">
+        <el-option label="默认顺序" value="default"/>
+        <el-option label="按系统排序" value="system"/>
+        <el-option label="CPU 使用率优先" value="cpu"/>
+        <el-option label="内存使用率优先" value="memory"/>
+        <el-option label="在线主机优先" value="online"/>
+        <el-option label="离线主机优先" value="offline"/>
+      </el-select>
+    </div>
     <div style="margin-bottom: 20px">
       <el-checkbox-group v-model="checkedNodes">
         <el-checkbox v-for="node in locations" :key="node" :label="node.name" border>
@@ -122,7 +154,7 @@ const terminal = reactive({
         </el-checkbox>
       </el-checkbox-group>
     </div>
-    <div class="card-list" v-if="list.length">
+    <div class="card-list" v-if="pagedList.length">
       <transition-group name="card-pop" appear>
         <preview-card v-for="item in pagedList" :key="item.id" :data="item" :update="updateList"
                       @click="displayClientDetails(item.id)"/>
@@ -135,7 +167,7 @@ const terminal = reactive({
                      v-model:current-page="currentPage"
                      v-model:page-size="pageSize"/>
     </div>
-    <el-empty description="还没有任何主机哦，点击右上角添加一个吧" v-else/>
+    <el-empty :description="list.length ? '没有匹配的主机' : '还没有任何主机哦，点击右上角添加一个吧'" v-else/>
     <el-drawer :size="detailDrawerSize" :show-close="false" v-model="detail.show"
                :with-header="false" v-if="list.length" @close="detail.id = -1">
       <client-details :id="detail.id" :update="updateList" @delete="updateList" @terminal="openTerminal"/>
@@ -208,12 +240,42 @@ const terminal = reactive({
       color: var(--el-text-color-primary);
     }
   }
+
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 15px;
+  }
+
+  .search-input {
+    max-width: 360px;
+  }
+
+  .sort-select {
+    width: 180px;
+  }
 }
 
 .card-list {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+  .manage-main {
+    margin: 0 15px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+  }
+
+  .search-input,
+  .sort-select {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .card-pop-enter-active {
