@@ -122,6 +122,8 @@ const stats = computed(() => {
   }
 })
 
+const showStatusStats = computed(() => activeFilterCount.value === 0)
+
 const register = reactive({
   show: false,
   token: ''
@@ -154,10 +156,12 @@ const terminal = reactive({
     <el-divider style="margin: 10px 0"/>
     <div class="stats-bar">
       <span>共 <b>{{ stats.total }}</b> 台主机</span>
-      <el-divider direction="vertical"/>
-      <span><i style="color: #18cb18" class="fa-solid fa-circle-play"></i> 在线 <b>{{ stats.online }}</b> 台</span>
-      <el-divider direction="vertical"/>
-      <span><i style="color: #8a8a8a" class="fa-solid fa-circle-stop"></i> 离线 <b>{{ stats.offline }}</b> 台</span>
+      <template v-if="showStatusStats">
+        <el-divider direction="vertical"/>
+        <span><i style="color: #18cb18" class="fa-solid fa-circle-play"></i> 在线 <b>{{ stats.online }}</b> 台</span>
+        <el-divider direction="vertical"/>
+        <span><i style="color: #8a8a8a" class="fa-solid fa-circle-stop"></i> 离线 <b>{{ stats.offline }}</b> 台</span>
+      </template>
     </div>
     <div class="toolbar">
       <el-popover placement="bottom-start" :width="360" trigger="click">
