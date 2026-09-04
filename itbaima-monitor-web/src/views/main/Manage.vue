@@ -20,17 +20,26 @@ const locations = [
   {name: 'de', desc: '德国'}
 ]
 const checkedNodes = ref([])
+const checkedSystems = ref([])
 const searchKeyword = ref('')
-const sortMode = ref('default')
+const statusFilter = ref('all')
+const cpuCategory = ref('all')
+const memorySort = ref('default')
 
 const activeFilterCount = computed(() => {
   return (searchKeyword.value.trim() ? 1 : 0) +
-    (sortMode.value !== 'default' ? 1 : 0) +
+    (statusFilter.value !== 'all' ? 1 : 0) +
+    (cpuCategory.value !== 'all' ? 1 : 0) +
+    (memorySort.value !== 'default' ? 1 : 0) +
+    (checkedSystems.value.length ? 1 : 0) +
     (checkedNodes.value.length ? 1 : 0)
 })
 const clearFilters = () => {
   searchKeyword.value = ''
-  sortMode.value = 'default'
+  statusFilter.value = 'all'
+  cpuCategory.value = 'all'
+  memorySort.value = 'default'
+  checkedSystems.value = []
   checkedNodes.value = []
 }
 
@@ -62,26 +71,29 @@ const displayClientDetails = (id) => {
   detail.id = id
 }
 
+const systems = computed(() => [...new Set(list.value.map(item => item.osName).filter(Boolean))].sort())
+
 const clientList = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
   const filtered = list.value.filter(item => {
     const matchesLocation = checkedNodes.value.length === 0 || checkedNodes.value.includes(item.location)
+    const matchesSystem = checkedSystems.value.length === 0 || checkedSystems.value.includes(item.osName)
+    const matchesStatus = statusFilter.value === 'all' ||
+      (statusFilter.value === 'online' ? item.online : !item.online)
+    const cpu = Number(item.cpuUsage) || 0
+    const matchesCpu = cpuCategory.value === 'all' ||
+      (cpuCategory.value === 'low' && cpu < 0.3) ||
+      (cpuCategory.value === 'medium' && cpu >= 0.3 && cpu < 0.7) ||
+      (cpuCategory.value === 'high' && cpu >= 0.7)
     const matchesKeyword = !keyword || [item.ip, item.name, item.id]
       .some(value => String(value ?? '').toLowerCase().includes(keyword))
-    return matchesLocation && matchesKeyword
+    return matchesLocation && matchesSystem && matchesStatus && matchesCpu && matchesKeyword
   })
   const sorted = [...filtered]
-  const memoryRate = item => item.memory > 0 ? item.memoryUsage / item.memory : 0
-  if(sortMode.value === 'system') {
-    sorted.sort((a, b) => String(a.osName ?? '').localeCompare(String(b.osName ?? ''), 'zh-CN'))
-  } else if(sortMode.value === 'cpu') {
-    sorted.sort((a, b) => (b.cpuUsage ?? 0) - (a.cpuUsage ?? 0))
-  } else if(sortMode.value === 'memory') {
-    sorted.sort((a, b) => memoryRate(b) - memoryRate(a))
-  } else if(sortMode.value === 'online') {
-    sorted.sort((a, b) => Number(b.online) - Number(a.online))
-  } else if(sortMode.value === 'offline') {
-    sorted.sort((a, b) => Number(a.online) - Number(b.online))
+  if(memorySort.value === 'asc') {
+    sorted.sort((a, b) => (Number(a.memory) || 0) - (Number(b.memory) || 0))
+  } else if(memorySort.value === 'desc') {
+    sorted.sort((a, b) => (Number(b.memory) || 0) - (Number(a.memory) || 0))
   }
   return sorted
 })
@@ -92,11 +104,12 @@ const pagedList = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   return clientList.value.slice(start, start + pageSize.value)
 })
-watch(() => [clientList.value.length, pageSize.value, searchKeyword.value, sortMode.value], () => {
+watch(() => [clientList.value.length, pageSize.value], () => {
   const maxPage = Math.max(1, Math.ceil(clientList.value.length / pageSize.value))
   if(currentPage.value > maxPage) currentPage.value = maxPage
 })
-watch(() => [searchKeyword.value, sortMode.value, checkedNodes.value.join(',')], () => {
+watch(() => [searchKeyword.value, statusFilter.value, cpuCategory.value, memorySort.value,
+  checkedSystems.value.join(','), checkedNodes.value.join(',')], () => {
   currentPage.value = 1
 })
 
@@ -160,13 +173,30 @@ const terminal = reactive({
             <el-button link type="primary" @click="clearFilters">清空条件</el-button>
           </div>
           <el-input v-model="searchKeyword" clearable placeholder="按 IP、主机名或 ID 检索"/>
-          <el-select v-model="sortMode" placeholder="排序方式" class="filter-sort">
+          <div class="filter-label">系统分类</div>
+          <el-checkbox-group v-model="checkedSystems" class="filter-systems">
+            <el-checkbox v-for="system in systems" :key="system" :label="system">
+              {{ system }}
+            </el-checkbox>
+          </el-checkbox-group>
+          <div class="filter-label">在线状态</div>
+          <el-radio-group v-model="statusFilter" class="filter-status">
+            <el-radio-button label="all">全部</el-radio-button>
+            <el-radio-button label="online">在线</el-radio-button>
+            <el-radio-button label="offline">离线</el-radio-button>
+          </el-radio-group>
+          <div class="filter-label">CPU 使用率分类</div>
+          <el-select v-model="cpuCategory" placeholder="CPU 分类" class="filter-sort">
+            <el-option label="全部" value="all"/>
+            <el-option label="低负载（< 30%）" value="low"/>
+            <el-option label="中负载（30% - 70%）" value="medium"/>
+            <el-option label="高负载（≥ 70%）" value="high"/>
+          </el-select>
+          <div class="filter-label">内存容量排序</div>
+          <el-select v-model="memorySort" placeholder="内存排序" class="filter-sort">
             <el-option label="默认顺序" value="default"/>
-            <el-option label="按系统排序" value="system"/>
-            <el-option label="CPU 使用率优先" value="cpu"/>
-            <el-option label="内存使用率优先" value="memory"/>
-            <el-option label="在线主机优先" value="online"/>
-            <el-option label="离线主机优先" value="offline"/>
+            <el-option label="内存大小升序" value="asc"/>
+            <el-option label="内存大小降序" value="desc"/>
           </el-select>
           <div class="filter-label">地区</div>
           <el-checkbox-group v-model="checkedNodes" class="filter-locations">
@@ -319,10 +349,26 @@ const terminal = reactive({
   font-size: 13px;
 }
 
+.filter-systems,
 .filter-locations {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.filter-status {
+  width: 100%;
+}
+
+.filter-status :deep(.el-radio-button) {
+  flex: 1;
+}
+
+.filter-status :deep(.el-radio-button__inner) {
+  width: 100%;
+}
+
+.filter-locations {
 }
 
 .card-pop-enter-active {
