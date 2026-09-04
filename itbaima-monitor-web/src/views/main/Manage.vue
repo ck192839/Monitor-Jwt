@@ -4,7 +4,7 @@ import {computed, reactive, ref, watch} from "vue";
 import {get} from "@/net";
 import ClientDetails from "@/component/ClientDetails.vue";
 import RegisterCard from "@/component/RegisterCard.vue";
-import {Plus} from "@element-plus/icons-vue";
+import {Filter, Plus} from "@element-plus/icons-vue";
 import {useRoute} from "vue-router";
 import {useStore} from "@/store";
 import TerminalWindow from "@/component/TerminalWindow.vue";
@@ -22,6 +22,17 @@ const locations = [
 const checkedNodes = ref([])
 const searchKeyword = ref('')
 const sortMode = ref('default')
+
+const activeFilterCount = computed(() => {
+  return (searchKeyword.value.trim() ? 1 : 0) +
+    (sortMode.value !== 'default' ? 1 : 0) +
+    (checkedNodes.value.length ? 1 : 0)
+})
+const clearFilters = () => {
+  searchKeyword.value = ''
+  sortMode.value = 'default'
+  checkedNodes.value = []
+}
 
 const list = ref([])
 const store = useStore()
@@ -136,23 +147,36 @@ const terminal = reactive({
       <span><i style="color: #8a8a8a" class="fa-solid fa-circle-stop"></i> 离线 <b>{{ stats.offline }}</b> 台</span>
     </div>
     <div class="toolbar">
-      <el-input v-model="searchKeyword" clearable placeholder="按 IP、主机名或 ID 检索" class="search-input"/>
-      <el-select v-model="sortMode" placeholder="排序方式" class="sort-select">
-        <el-option label="默认顺序" value="default"/>
-        <el-option label="按系统排序" value="system"/>
-        <el-option label="CPU 使用率优先" value="cpu"/>
-        <el-option label="内存使用率优先" value="memory"/>
-        <el-option label="在线主机优先" value="online"/>
-        <el-option label="离线主机优先" value="offline"/>
-      </el-select>
-    </div>
-    <div style="margin-bottom: 20px">
-      <el-checkbox-group v-model="checkedNodes">
-        <el-checkbox v-for="node in locations" :key="node" :label="node.name" border>
-          <span :class="`flag-icon flag-icon-${node.name}`"></span>
-          <span style="font-size: 13px;margin-left: 10px">{{node.desc}}</span>
-        </el-checkbox>
-      </el-checkbox-group>
+      <el-popover placement="bottom-start" :width="360" trigger="click">
+        <template #reference>
+          <el-button :icon="Filter" plain>
+            筛选器
+            <el-badge v-if="activeFilterCount" :value="activeFilterCount" class="filter-badge"/>
+          </el-button>
+        </template>
+        <div class="filter-panel">
+          <div class="filter-title">
+            <span>主机筛选</span>
+            <el-button link type="primary" @click="clearFilters">清空条件</el-button>
+          </div>
+          <el-input v-model="searchKeyword" clearable placeholder="按 IP、主机名或 ID 检索"/>
+          <el-select v-model="sortMode" placeholder="排序方式" class="filter-sort">
+            <el-option label="默认顺序" value="default"/>
+            <el-option label="按系统排序" value="system"/>
+            <el-option label="CPU 使用率优先" value="cpu"/>
+            <el-option label="内存使用率优先" value="memory"/>
+            <el-option label="在线主机优先" value="online"/>
+            <el-option label="离线主机优先" value="offline"/>
+          </el-select>
+          <div class="filter-label">地区</div>
+          <el-checkbox-group v-model="checkedNodes" class="filter-locations">
+            <el-checkbox v-for="node in locations" :key="node.name" :label="node.name">
+              <span :class="`flag-icon flag-icon-${node.name}`"></span>
+              <span style="font-size: 13px;margin-left: 6px">{{node.desc}}</span>
+            </el-checkbox>
+          </el-checkbox-group>
+        </div>
+      </el-popover>
     </div>
     <div class="card-list" v-if="pagedList.length">
       <transition-group name="card-pop" appear>
@@ -247,13 +271,6 @@ const terminal = reactive({
     margin-bottom: 15px;
   }
 
-  .search-input {
-    max-width: 360px;
-  }
-
-  .sort-select {
-    width: 180px;
-  }
 }
 
 .card-list {
@@ -271,11 +288,41 @@ const terminal = reactive({
     flex-direction: column;
   }
 
-  .search-input,
-  .sort-select {
+  .filter-panel {
     width: 100%;
-    max-width: none;
   }
+}
+
+.filter-badge {
+  margin-left: 8px;
+}
+
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.filter-sort {
+  width: 100%;
+}
+
+.filter-label {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.filter-locations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .card-pop-enter-active {
