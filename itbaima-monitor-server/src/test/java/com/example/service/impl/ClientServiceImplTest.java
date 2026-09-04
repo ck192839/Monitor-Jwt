@@ -67,8 +67,9 @@ class ClientServiceImplTest {
                 .thenReturn(java.util.List.of(detail));
 
         var result = service.listClients();
+        service.listClients();
 
-        verify(detailMapper).selectBatchIds(org.mockito.ArgumentMatchers.argThat(ids ->
+        verify(detailMapper, org.mockito.Mockito.times(1)).selectBatchIds(org.mockito.ArgumentMatchers.argThat(ids ->
                 ids.size() == 2 && ids.containsAll(java.util.List.of(1, 2))));
         verify(detailMapper, never()).selectById(1);
         verify(detailMapper, never()).selectById(2);

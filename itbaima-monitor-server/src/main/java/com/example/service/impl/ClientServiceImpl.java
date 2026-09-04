@@ -27,6 +27,8 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
 
     private final Map<Integer, Client> clientIdCache = new ConcurrentHashMap<>();
     private final Map<String, Client> clientTokenCache = new ConcurrentHashMap<>();
+    private final Map<Integer, ClientDetail> clientDetailCache = new ConcurrentHashMap<>();
+    private final Set<Integer> clientDetailMissingCache = ConcurrentHashMap.newKeySet();
     @Resource
     private ClientDetailMapper detailMapper;
 
@@ -83,6 +85,8 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
         else{
             detailMapper.insert(detail);
         }
+        clientDetailMissingCache.remove(client.getId());
+        clientDetailCache.put(client.getId(), detail);
     }
 
     private final Map<Integer, RuntimeDetailVO> currentRuntime = new ConcurrentHashMap<>();
@@ -97,19 +101,7 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
         List<Client> clients = new ArrayList<>(clientIdCache.values());
         Map<Integer, ClientDetail> details = loadClientDetails(clients);
         return clients.stream().map(client -> {
-            ClientPreviewVO vo = client.asViewObject(ClientPreviewVO.class);//基本信息
-            ClientDetail detail = details.get(vo.getId());
-            if (detail != null) {
-                BeanUtils.copyProperties(detail, vo);//详细信息
-            } else {
-                applyMissingDetailDefaults(vo);
-            }
-            RuntimeDetailVO runtime = currentRuntime.get(client.getId());//运行时信息
-            if(this.isOnline(runtime)) {
-                BeanUtils.copyProperties(runtime, vo);
-                vo.setOnline(true);
-            }
-            return vo;
+            return buildClientPreview(client, details.get(client.getId()), currentRuntime.get(client.getId()));
         }).toList();
     }
     @Override
@@ -135,13 +127,52 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
             return Collections.emptyMap();
         }
         List<Integer> ids = clients.stream().map(Client::getId).toList();
-        List<ClientDetail> details = detailMapper.selectBatchIds(ids);
-        if (details == null || details.isEmpty()) {
-            return Collections.emptyMap();
+        List<Integer> missingIds = ids.stream()
+                .filter(id -> !clientDetailCache.containsKey(id) && !clientDetailMissingCache.contains(id))
+                .toList();
+        if (!missingIds.isEmpty()) {
+            List<ClientDetail> details = detailMapper.selectBatchIds(missingIds);
+            if (details != null) {
+                Set<Integer> foundIds = details.stream()
+                        .filter(detail -> detail.getId() != null)
+                        .map(ClientDetail::getId)
+                        .collect(java.util.stream.Collectors.toSet());
+                details.stream()
+                        .filter(detail -> detail.getId() != null)
+                        .forEach(detail -> clientDetailCache.put(detail.getId(), detail));
+                missingIds.stream()
+                        .filter(id -> !foundIds.contains(id))
+                        .forEach(clientDetailMissingCache::add);
+            }
         }
-        return details.stream()
-                .filter(detail -> detail.getId() != null)
-                .collect(java.util.stream.Collectors.toMap(ClientDetail::getId, detail -> detail, (first, ignored) -> first));
+        return ids.stream()
+                .filter(clientDetailCache::containsKey)
+                .collect(java.util.stream.Collectors.toMap(id -> id, clientDetailCache::get));
+    }
+
+    private ClientPreviewVO buildClientPreview(Client client, ClientDetail detail, RuntimeDetailVO runtime) {
+        ClientPreviewVO vo = new ClientPreviewVO();
+        vo.setId(client.getId());
+        vo.setName(client.getName());
+        vo.setLocation(client.getLocation());
+        if (detail == null) {
+            applyMissingDetailDefaults(vo);
+        } else {
+            vo.setOsName(detail.getOsName());
+            vo.setOsVersion(detail.getOsVersion());
+            vo.setIp(detail.getIp());
+            vo.setCpuName(detail.getCpuName());
+            vo.setCpuCore(detail.getCpuCore());
+            vo.setMemory(detail.getMemory());
+        }
+        if (this.isOnline(runtime)) {
+            vo.setCpuUsage(runtime.getCpuUsage());
+            vo.setMemoryUsage(runtime.getMemoryUsage());
+            vo.setNetworkUpload(runtime.getNetworkUpload());
+            vo.setNetworkDownload(runtime.getNetworkDownload());
+            vo.setOnline(true);
+        }
+        return vo;
     }
 
 
@@ -164,6 +195,8 @@ public class ClientServiceImpl  extends ServiceImpl<ClientMapper, Client> implem
     public void deleteClient(int clientId) {//influxdb数据不管
         this.removeById(clientId);
         detailMapper.deleteById(clientId);
+        clientDetailCache.remove(clientId);
+        clientDetailMissingCache.remove(clientId);
         this.initClientCache();
         currentRuntime.remove(clientId);
     }
