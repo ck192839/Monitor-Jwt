@@ -221,7 +221,8 @@ const terminal = reactive({
                      v-model:current-page="currentPage"
                      v-model:page-size="pageSize"/>
     </div>
-    <el-empty :description="list.length ? '没有匹配的主机' : '还没有任何主机哦，点击右上角添加一个吧'" v-else/>
+    <el-empty v-if="!list.length" description="还没有任何主机哦，点击右上角添加一个吧"/>
+    <el-empty v-if="list.length && !clientList.length" description="没有匹配的主机"/>
     <el-drawer :size="detailDrawerSize" :show-close="false" v-model="detail.show"
                :with-header="false" v-if="list.length" @close="detail.id = -1">
       <client-details :id="detail.id" :update="updateList" @delete="updateList" @terminal="openTerminal"/>
